@@ -8,3 +8,6 @@ Execute a NumScript program
 
     $ numscript <file.ns>
 
+# License
+
+All the files included in this repository are distributed under the [MIT license](LICENSE).

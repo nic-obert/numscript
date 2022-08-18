@@ -3,8 +3,18 @@ from enum import IntEnum
 
 class Operator(IntEnum):
 
-    SET_ADDRESS = 0
-    IF_CHECK = 1
+    DECALRE_LOCAL = 0
+    SET = 1
     DECLARE_LABEL = 2
-    NO_OP = 3
+    GOTO_LABEL = 3
+    RETURN_FROM_LABEL = 4
+    EXIT = 5
+    NO_OP = 6
+    SLEEP_MS = 7
+
+    
+    # IF_CHECK = 
+    # PRINT =
+    # PRINT_STRING =
+    
 

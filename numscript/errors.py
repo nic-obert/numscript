@@ -1,5 +1,6 @@
 from enum import IntEnum
 from typing import Any
+from numscript.object import Object, Type as ObjectType
 from numscript.op_codes import Operator
 from numscript.parser import Statement
 from sys import stderr
@@ -57,5 +58,19 @@ class Errors:
     def no_label_to_return_from(statement: Statement) -> None:
         Errors.error(f"""
             No label to return from on line {statement.line_number}:
+            {statement.tokens}
+        """)
+    
+    @staticmethod
+    def no_string_representation(object: Object, statement: Statement) -> None:
+        Errors.error(f"""
+            No string representation for object {object} on line {statement.line_number}:
+            {statement.tokens}
+        """)
+    
+    @staticmethod
+    def invalid_object_type(object: Object, expected_type: ObjectType, statement: Statement) -> None:
+        Errors.error(f"""
+            Invalid index type for object {object} (expected {expected_type}) on line {statement.line_number}:
             {statement.tokens}
         """)

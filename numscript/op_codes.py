@@ -11,10 +11,11 @@ class Operator(IntEnum):
     EXIT = 5
     NO_OP = 6
     SLEEP_MS = 7
+    PRINT = 8
+    PRINT_STRING = 9
+    ACCESS_INDEX = 10
 
     
     # IF_CHECK = 
-    # PRINT =
-    # PRINT_STRING =
     
 

@@ -24,3 +24,13 @@ class Object():
     @staticmethod
     def from_array(value: list) -> Object:
         return Object(value, Type.ARRAY)
+    
+
+    def to_string(self) -> str | None:
+        match self.type:
+            case Type.INT:
+                return chr(self.value)
+            case Type.ARRAY:
+                return ''.join(chr(x) for x in self.value)
+            case _:
+                return None

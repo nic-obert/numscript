@@ -2,7 +2,7 @@ from typing import Dict, List
 from numscript.parser import Script, Statement
 from numscript.errors import ErrorCode, Errors
 from numscript.op_codes import Operator
-from numscript.object import Object
+from numscript.object import Object, Type as ObjectType
 import time
 
 
@@ -113,15 +113,15 @@ class VM:
                 match variant:
                     case 0:
                         value = self.statement.get(3)
-                        self.set_local_object(local_dest_id, Object.from_int(value))                        
+                        self.declare_local_object(local_dest_id, Object.from_int(value))                        
                     
                     case 1:
-                        value = self.statement.get_from(3)
-                        self.set_local_object(local_dest_id, Object.from_array(value))
+                        array = self.statement.get_from(3)
+                        self.declare_local_object(local_dest_id, Object.from_array(array))
                     
                     case 2:
                         src_id = self.statement.get(3)
-                        self.set_local_object(local_dest_id, self.get_object(src_id))
+                        self.declare_local_object(local_dest_id, self.get_object(src_id))
                     
                     case _:
                         Errors.invalid_op_code_variant(main_op, variant, self.statement)
@@ -142,8 +142,8 @@ class VM:
                         self.set_object(dest_id, Object.from_int(value))
 
                     case 1:
-                        value = self.statement.get_from(3)
-                        self.set_object(dest_id, Object.from_array(value))
+                        array = self.statement.get_from(3)
+                        self.set_object(dest_id, Object.from_array(array))
 
                     case 2:
                         src_id = self.statement.get(3)
@@ -187,10 +187,27 @@ class VM:
             
             case Operator.EXIT:
                 """
-                    5 [literal int]
+                    5 0 [literal int]
+                    5 1 [identifier]
                 """
-                check_arg_number(self.statement, 1)
-                exit_code = self.statement.get(1)
+                check_arg_number(self.statement, 2)
+
+                variant = self.statement.get(1)
+                match variant:
+                    case 0:
+                        exit_code = self.statement.get(2)
+                    
+                    case 1:
+                        exit_code_id = self.statement.get(2)
+                        exit_code_obj = self.get_object(exit_code_id)
+
+                        if exit_code_obj.type != ObjectType.INT:
+                            Errors.invalid_object_type(exit_code_obj.type, ObjectType.INT, self.statement)
+                        exit_code = exit_code_obj.value
+                    
+                    case _:
+                        Errors.invalid_op_code_variant(main_op, variant, self.statement)
+
                 self.running = False
                 self.status = exit_code
             
@@ -202,11 +219,141 @@ class VM:
             
             case Operator.SLEEP_MS:
                 """
-                    7 [literal int]
+                    7 0 [literal int]
+                    7 1 [identifier]
                 """
-                check_arg_number(self.statement, 1)
-                sleep_ms = self.statement.get(1)
+                check_arg_number(self.statement, 2)
+
+                variant = self.statement.get(1)
+                match variant:
+                    case 0:
+                        sleep_ms = self.statement.get(2)
+
+                    case 1:
+                        sleep_ms_id = self.statement.get(2)
+                        sleep_ms_obj = self.get_object(sleep_ms_id)
+
+                        if sleep_ms_obj.type != ObjectType.INT:
+                            Errors.invalid_object_type(sleep_ms_obj.type, ObjectType.INT, self.statement)
+                        sleep_ms = sleep_ms_obj.value
+
+                    case _:
+                        Errors.invalid_op_code_variant(main_op, variant, self.statement)
+                        
                 time.sleep(sleep_ms / 1000)
+
+            case Operator.PRINT:
+                """
+                    8 0 [literal int]
+                    8 1 [array]
+                    8 2 [identifier]
+                """
+                check_arg_number(self.statement, 2)
+
+                variant = self.statement.get(1)
+                match variant:
+                    case 0:
+                        value = self.statement.get(2)
+                        print(value)
+
+                    case 1:
+                        array = self.statement.get_from(2)
+                        print(array)
+                    
+                    case 2:
+                        src_id = self.statement.get(2)
+                        print(self.get_object(src_id))
+                    
+                    case _:
+                        Errors.invalid_op_code_variant(main_op, variant, self.statement)
+            
+            case Operator.PRINT_STRING:
+                """
+                    9 0 [int literal]
+                    9 1 [array literal]
+                    9 2 [identifier]
+                """
+                check_arg_number(self.statement, 2)
+
+                variant = self.statement.get(1)
+                match variant:
+                    case 0:
+                        value = self.statement.get(2)
+                        print(chr(value))
+
+                    case 1:
+                        array = self.statement.get_from(2)
+                        print(''.join(chr(c) for c in array))
+
+                    case 2:
+                        src_id = self.statement.get(2)
+                        obj = self.get_object(src_id)
+                        string = obj.to_string()
+                        if string is None:
+                            Errors.no_string_representation(obj, self.statement)
+                        print(string)
+
+            case Operator.ACCESS_INDEX:
+                """
+                    10 0 [literal int index] [save address] [literal array]
+                    10 1 [identifier index] [save address] [literal array]
+                    10 2 [literal int index] [save address] [identifier array]
+                    10 3 [identifier index] [save address] [identifier array]
+                """
+                check_arg_number(self.statement, 4)
+
+                variant = self.statement.get(1)
+                match variant:
+                    case 0:
+                        index = self.statement.get(2)
+                        dest_id = self.statement.get(3)
+                        array = self.statement.get_from(4)
+                        self.set_object(dest_id, Object.from_int(array[index]))
+                        
+                    case 1:
+                        index_id = self.statement.get(2)
+                        dest_id = self.statement.get(3)
+                        array = self.statement.get_from(4)
+
+                        index_obj = self.get_object(index_id)
+                        if index_obj.type != ObjectType.INT:
+                            Errors.invalid_object_type(index_obj, ObjectType.INT, self.statement)
+                        index = index_obj.value
+
+                        self.set_object(dest_id, Object.from_int(array[index]))
+
+                    case 2:
+                        index = self.statement.get(2)
+                        dest_id = self.statement.get(3)
+                        array_id = self.statement.get(4)
+
+                        array_obj = self.get_object(array_id)
+                        if array_obj.type != ObjectType.ARRAY:
+                            Errors.invalid_object_type(array_obj, ObjectType.ARRAY, self.statement)
+                        array = array_obj.value
+
+                        self.set_object(dest_id, Object.from_int(array[index]))
+
+                    case 3:
+                        index_id = self.statement.get(2)
+                        dest_id = self.statement.get(3)
+                        array_id = self.statement.get(4)
+
+                        index_obj = self.get_object(index_id)
+                        if index_obj.type != ObjectType.INT:
+                            Errors.invalid_object_type(index_obj, ObjectType.INT, self.statement)
+                        index = index_obj.value
+
+                        array_obj = self.get_object(array_id)
+                        if array_obj.type != ObjectType.ARRAY:
+                            Errors.invalid_object_type(array_obj, ObjectType.ARRAY, self.statement)
+                        array = array_obj.value
+
+                        self.set_object(dest_id, Object.from_int(array[index]))
+
+
+            case _:
+                Errors.invalid_op_code(main_op, self.statement)
 
 
 

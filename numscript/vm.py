@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 from numscript.parser import Script, Statement
 from numscript.errors import ErrorCode, Errors
 from numscript.op_codes import Operator
@@ -25,20 +25,21 @@ class VM:
         self.program_counter = 0
         self.stack: List[Object] = []
         self.running = False
-        self.statement: Statement | None = None
+        self.script: Script = None
+        self.statement: Statement = None
         # Maps label ids to program addresses
         self.labels: Dict[int, int] = {}
         self.goto_stack: List[int] = []
         self.status = ErrorCode.NO_ERROR
 
 
-    def execute_next_statement(self, script: Script) -> None:
-        self.statement = self.get_next_statement(script)
+    def execute_next_statement(self) -> None:
+        self.statement = self.get_next_statement()
         self.execute_statement()
 
 
-    def get_next_statement(self, script: Script) -> Statement:
-        line = script.statements[self.program_counter]
+    def get_next_statement(self) -> Statement:
+        line = self.script.statements[self.program_counter]
         self.program_counter += 1
         return line
 
@@ -91,6 +92,39 @@ class VM:
 
     def get_local_object(self, address: int) -> Object:
         return self.stack[self.current_scope() + address]
+
+
+    def goto_label(self, label_id: int) -> None:
+        if label_id not in self.labels:
+            Errors.label_not_found(label_id, self.statement)
+        
+        # Save the current program counter for later
+        self.goto_stack.append(self.program_counter)
+        # Perform the jump
+        self.program_counter = self.labels[label_id]
+
+
+    def jump_until_label(self, label_id: int) -> None:
+        statement = None
+        while True:
+            if self.program_counter == len(self.script.statements):
+                Errors.label_not_found(label_id, self.statement)
+            
+            statement = self.get_next_statement()
+            if statement.get(0) == Operator.DECLARE_LABEL:
+                check_arg_number(statement, 1)
+                if statement.get(1) == label_id:
+                    break
+            
+            self.program_counter += 1
+        
+        self.labels[label_id] = self.program_counter
+
+
+    def get_object_value(self, obj: Object, _type: ObjectType) -> Any:
+        if obj.type == _type:
+            return obj.value
+        Errors.invalid_object_type(obj, _type, self.statement)
 
 
     def execute_statement(self) -> None:
@@ -166,13 +200,7 @@ class VM:
                 """
                 check_arg_number(self.statement, 1)
                 label_id = self.statement.get(1)
-                if label_id not in self.labels:
-                    Errors.label_not_found(label_id, self.statement)
-                
-                # Save the current program counter for later
-                self.goto_stack.append(self.program_counter)
-                # Perform the jump
-                self.program_counter = self.labels[label_id]
+                self.goto_label(label_id)
             
             case Operator.RETURN_FROM_LABEL:
                 """
@@ -200,10 +228,7 @@ class VM:
                     case 1:
                         exit_code_id = self.statement.get(2)
                         exit_code_obj = self.get_object(exit_code_id)
-
-                        if exit_code_obj.type != ObjectType.INT:
-                            Errors.invalid_object_type(exit_code_obj.type, ObjectType.INT, self.statement)
-                        exit_code = exit_code_obj.value
+                        exit_code = self.get_object_value(exit_code_obj, ObjectType.INT)
                     
                     case _:
                         Errors.invalid_op_code_variant(main_op, variant, self.statement)
@@ -232,10 +257,7 @@ class VM:
                     case 1:
                         sleep_ms_id = self.statement.get(2)
                         sleep_ms_obj = self.get_object(sleep_ms_id)
-
-                        if sleep_ms_obj.type != ObjectType.INT:
-                            Errors.invalid_object_type(sleep_ms_obj.type, ObjectType.INT, self.statement)
-                        sleep_ms = sleep_ms_obj.value
+                        sleep_ms = self.get_object_value(sleep_ms_obj, ObjectType.INT)
 
                     case _:
                         Errors.invalid_op_code_variant(main_op, variant, self.statement)
@@ -316,9 +338,7 @@ class VM:
                         array = self.statement.get_from(4)
 
                         index_obj = self.get_object(index_id)
-                        if index_obj.type != ObjectType.INT:
-                            Errors.invalid_object_type(index_obj, ObjectType.INT, self.statement)
-                        index = index_obj.value
+                        index = self.get_object_value(index_obj, ObjectType.INT)
 
                         self.set_object(dest_id, Object.from_int(array[index]))
 
@@ -328,9 +348,7 @@ class VM:
                         array_id = self.statement.get(4)
 
                         array_obj = self.get_object(array_id)
-                        if array_obj.type != ObjectType.ARRAY:
-                            Errors.invalid_object_type(array_obj, ObjectType.ARRAY, self.statement)
-                        array = array_obj.value
+                        array = self.get_object_value(array_obj, ObjectType.ARRAY)
 
                         self.set_object(dest_id, Object.from_int(array[index]))
 
@@ -340,16 +358,52 @@ class VM:
                         array_id = self.statement.get(4)
 
                         index_obj = self.get_object(index_id)
-                        if index_obj.type != ObjectType.INT:
-                            Errors.invalid_object_type(index_obj, ObjectType.INT, self.statement)
-                        index = index_obj.value
+                        index = self.get_object_value(index_obj, ObjectType.INT)
 
                         array_obj = self.get_object(array_id)
-                        if array_obj.type != ObjectType.ARRAY:
-                            Errors.invalid_object_type(array_obj, ObjectType.ARRAY, self.statement)
-                        array = array_obj.value
+                        array = self.get_object_value(array_obj, ObjectType.ARRAY)
 
                         self.set_object(dest_id, Object.from_int(array[index]))
+
+            case Operator.IF_JUMP:
+                """
+                    11 0 [literal condition] [label]
+                    11 1 [identifier condition] [label]
+                    11 2 [literal condition] [stop label]
+                    11 3 [identifier condition] [stop label]
+                """
+                check_arg_number(self.statement, 3)
+
+                variant = self.statement.get(1)
+                match variant:
+                    case 0:
+                        condition = self.statement.get(2)
+                        label_id = self.statement.get(3)
+                        if condition:
+                            self.goto_label(label_id)
+                        
+                    case 1:
+                        condition_id = self.statement.get(2)
+                        label_id = self.statement.get(3)
+                        condition_obj = self.get_object(condition_id)
+                        condition = self.get_object_value(condition_obj, ObjectType.BOOL)
+                        if condition:
+                            self.goto_label(label_id)
+                        
+                    case 2:
+                        condition = self.statement.get(2)
+                        label_id = self.statement.get(3)
+                        if condition:
+                            self.jump_until_label(label_id)
+                        
+                    case 3:
+                        condition_id = self.statement.get(2)
+                        label_id = self.statement.get(3)
+                        condition_obj = self.get_object(condition_id)
+                        condition = self.get_object_value(condition_obj, ObjectType.BOOL)
+                        if condition:
+                            self.jump_until_label(label_id)
+
 
 
             case _:
@@ -358,9 +412,10 @@ class VM:
 
 
     def run(self, script: Script) -> ErrorCode:
+        self.script = script
         self.running = True
         while self.running:
-            self.execute_next_statement(script)
+            self.execute_next_statement()
         
         return self.status
             

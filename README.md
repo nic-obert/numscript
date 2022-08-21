@@ -15,6 +15,10 @@ An esoteric structured programming language that only uses numbers.
     - [5 - Exit the program](#5---exit-the-program)
     - [6 - No operation](#6---no-operation)
     - [7 - Sleep milliseconds](#7---sleep-milliseconds)
+    - [8 - Print](#8---print)
+    - [9 - Print as string](#9---print-as-string)
+    - [10 - Access array element at index](#10---access-array-element-at-index)
+    - [11 - If jump](#11---if-jump)
 
 # Usage
 
@@ -90,5 +94,51 @@ Variants:
     Sleep for the given literal int milliseconds.
 - `7 1 [identifier milliseconds]`  
     Sleep for the value of the given identifier milliseconds.
+
+### 8 - Print
+Print the given value to the console.  
+Variants:
+- `8 0 [literal int]`  
+    Print the given literal int to the console.
+- `8 1 [literal array]`  
+    Print the given literal array to the console.
+- `8 2 [identifier]`  
+    Print the value of the given identifier to the console.
+
+### 9 - Print as string
+Print the given value as a string to the console.  
+Variants:
+- `9 0 [literal int]`    
+    Print the given literal int as a string to the console.
+- `9 1 [literal array]`  
+    Print the given literal array as a string to the console.
+- `9 2 [identifier]`  
+    Print the value of the given identifier as a string to the console.
+
+### 10 - Access array element at index
+Access the array element at the given integer index.  
+Variants:
+- `10 0 [literal int index] [dest address] [literal array]`  
+    Access the literal array element at the given literal int index and store it at the given literal array address.
+- `10 1 [identifier int index] [dest address] [literal array]`  
+    Access the literal array element at the value of the given identifier int index and store it at the given literal array address.
+- `10 2 [literal int index] [dest address] [identifier array]`  
+    Access the literal array element at the given literal int index and store it at the value of the given identifier array address.
+- `10 3 [identifier int index] [dest address] [identifier array]`  
+    Access the literal array element at the value of the given identifier int index and store it at the value of the given identifier array address.
+
+### 11 - If jump
+Jump to the given statement if the given condition is true.  
+Variants:
+- `11 0 [literal condition] [label integer identifier]`  
+    Jump to the statement identified by the given label if the given literal condition is true.
+- `11 1 [identifier condition] [label integer identifier]`  
+    Jump to the statement identified by the given label if the value of the given identifier condition is true.
+- `11 2 [literal condition] [stop label]`  
+    Jump to the statement following the stop label if the condition is true. The stop label must be found after the if-jump statement.
+- `11 3 [identifier condition] [stop label]`  
+    Jump to the statement following the stop label if the value of the given identifier condition is true. The stop label must be found after the if-jump statement.
+
+
 
 

@@ -19,6 +19,7 @@ An esoteric structured programming language that only uses numbers.
     - [9 - Print as string](#9---print-as-string)
     - [10 - Access array element at index](#10---access-array-element-at-index)
     - [11 - If jump](#11---if-jump)
+    - [12 - Input](#12---input)
 
 # Usage
 
@@ -139,6 +140,16 @@ Variants:
 - `11 3 [identifier condition] [stop label]`  
     Jump to the statement following the stop label if the value of the given identifier condition is true. The stop label must be found after the if-jump statement.
 
-
+### 12 - Input
+Get input from the console and store it in the given variable.  
+Variants:
+- `12 0 [save address]`  
+    Store the integer input in the given variable.
+- `12 1 [save address]`  
+    Store the array input in the given variable.
+- `12 2 [save address]`  
+    Store the character input as an integer in the given variable.
+- `12 3 [save address]`  
+    Store the string input as an array in the given variable.
 
 

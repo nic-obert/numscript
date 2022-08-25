@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 -m numscript
+python3 -m numscript $@

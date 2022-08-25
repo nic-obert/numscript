@@ -15,5 +15,6 @@ class Operator(IntEnum):
     PRINT_STRING = 9
     ACCESS_INDEX = 10
     IF_JUMP = 11
+    INPUT = 12
     
 

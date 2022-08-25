@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 from dataclasses import dataclass
 
 
@@ -23,12 +23,15 @@ class Script:
 
     
 def parse(script: str) -> Script:
-    return Script(
-        statements=tuple(
-            Statement(
-                line_number,
-                tuple(int(token) for token in statement)
-            ) for line_number, statement in enumerate(script)
-        )
-    )
+    lines = enumerate(script.splitlines(), start=1)
+    statements: List[Statement] = []
 
+    for line_number, line in lines:
+        if line == '':
+            statements.append(Statement(line_number, ()))
+        else:
+            statement = tuple(map(int, line.split(' ')))
+            statements.append(Statement(line_number, statement))
+
+    return Script(tuple(statements))
+            

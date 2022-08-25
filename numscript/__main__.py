@@ -1,12 +1,11 @@
 from sys import argv
-from this import s
 from numscript import io
 from numscript import parser
 from numscript.vm import VM
 
 
 def main() -> None:
-    if len(argv) == 1:
+    if len(argv) != 2:
         print("Usage: numscript <script>")
         exit(1)
     
@@ -21,3 +20,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+

@@ -6,14 +6,13 @@ from numscript.object import Object, Type as ObjectType
 import time
 
 
-def check_arg_number(statement: Statement, expected: int) -> None:
+def check_minimum_arg_number(statement: Statement, expected: int) -> None:
     """
         Statement should never be empty.
-        Throw an error if the number of arguments is not equal to expected.
+        Throw an error if the number of arguments is at least equal to expected.
     """
-    # -1 to account for the main operation token
-    if len(statement.tokens) - 1 != expected:
-        Errors.invalid_op_arg_number(statement.tokens[0], statement, expected, len(statement.tokens) - 1)
+    if statement.length() < expected:
+        Errors.invalid_op_arg_number(statement.get(0), statement, expected, statement.length() - 1)
 
 
 class VM:
@@ -21,7 +20,7 @@ class VM:
     def __init__(self) -> None:
         
         # List of the start addresses of the scopes
-        self.scopes: List[int] = []
+        self.scopes: List[int] = [0]
         self.program_counter = 0
         self.stack: List[Object] = []
         self.running = False
@@ -38,8 +37,14 @@ class VM:
         self.execute_statement()
 
 
-    def get_next_statement(self) -> Statement:
-        line = self.script.statements[self.program_counter]
+    def get_next_statement(self) -> Statement | None:
+        try:            
+            line = self.script.statements[self.program_counter]
+        except IndexError:
+            # The program is finished
+            self.running = False
+            return None
+
         self.program_counter += 1
         return line
 
@@ -112,7 +117,7 @@ class VM:
             
             statement = self.get_next_statement()
             if statement.get(0) == Operator.DECLARE_LABEL:
-                check_arg_number(statement, 1)
+                check_minimum_arg_number(statement, 1)
                 if statement.get(1) == label_id:
                     break
             
@@ -128,7 +133,7 @@ class VM:
 
 
     def execute_statement(self) -> None:
-        if self.statement.length() == 0:
+        if self.statement is None or self.statement.length() == 0:
             return
         
         main_op = self.statement.get(0)
@@ -140,7 +145,7 @@ class VM:
                     0 1 [local identifier] [array]
                     0 2 [local identifier] [identifier]
                 """                
-                check_arg_number(self.statement, 3)
+                check_minimum_arg_number(self.statement, 3)
                 
                 variant = self.statement.get(1)
                 local_dest_id = self.statement.get(2)
@@ -166,7 +171,7 @@ class VM:
                     1 1 [identifier] [array]
                     1 2 [identifier] [identifier]
                 """
-                check_arg_number(self.statement, 3)
+                check_minimum_arg_number(self.statement, 3)
 
                 variant = self.statement.get(1)
                 dest_id = self.statement.get(2)
@@ -190,7 +195,7 @@ class VM:
                 """
                     2 [label identifier]
                 """
-                check_arg_number(self.statement, 1)
+                check_minimum_arg_number(self.statement, 1)
                 label_id = self.statement.get(1)
                 self.labels[label_id] = self.program_counter
             
@@ -198,7 +203,7 @@ class VM:
                 """
                     3 [label identifier]
                 """
-                check_arg_number(self.statement, 1)
+                check_minimum_arg_number(self.statement, 1)
                 label_id = self.statement.get(1)
                 self.goto_label(label_id)
             
@@ -206,7 +211,7 @@ class VM:
                 """
                     4
                 """
-                check_arg_number(self.statement, 0)
+                check_minimum_arg_number(self.statement, 0)
                 # Restore the program counter
                 try:
                     self.program_counter = self.goto_stack.pop()
@@ -218,7 +223,7 @@ class VM:
                     5 0 [literal int]
                     5 1 [identifier]
                 """
-                check_arg_number(self.statement, 2)
+                check_minimum_arg_number(self.statement, 2)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -240,14 +245,14 @@ class VM:
                 """
                     6
                 """
-                check_arg_number(self.statement, 0)
+                check_minimum_arg_number(self.statement, 0)
             
             case Operator.SLEEP_MS:
                 """
                     7 0 [literal int]
                     7 1 [identifier]
                 """
-                check_arg_number(self.statement, 2)
+                check_minimum_arg_number(self.statement, 2)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -270,7 +275,7 @@ class VM:
                     8 1 [array]
                     8 2 [identifier]
                 """
-                check_arg_number(self.statement, 2)
+                check_minimum_arg_number(self.statement, 2)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -295,7 +300,7 @@ class VM:
                     9 1 [array literal]
                     9 2 [identifier]
                 """
-                check_arg_number(self.statement, 2)
+                check_minimum_arg_number(self.statement, 2)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -322,7 +327,7 @@ class VM:
                     10 2 [literal int index] [save address] [identifier array]
                     10 3 [identifier index] [save address] [identifier array]
                 """
-                check_arg_number(self.statement, 4)
+                check_minimum_arg_number(self.statement, 4)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -372,7 +377,7 @@ class VM:
                     11 2 [literal condition] [stop label]
                     11 3 [identifier condition] [stop label]
                 """
-                check_arg_number(self.statement, 3)
+                check_minimum_arg_number(self.statement, 3)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -404,7 +409,41 @@ class VM:
                         if condition:
                             self.jump_until_label(label_id)
 
+            case Operator.INPUT:
+                """
+                    12 0 [save address] # input int
+                    12 1 [save address] # input array
+                    12 2 [save address] # input char as int
+                    12 3 [save address] # input string as array
+                """
+                check_minimum_arg_number(self.statement, 2)
 
+                variant = self.statement.get(1)
+                dest_id = self.statement.get(2)
+                try:
+                    match variant:
+                        case 0:
+                            int_input = int(input())  
+                            self.set_object(dest_id, Object.from_int(int_input))
+                        
+                        case 1:
+                            array_input = [int(c) for c in input()]
+                            self.set_object(dest_id, Object.from_array(array_input))
+                        
+                        case 2:
+                            int_input = ord(input())
+                            self.set_object(dest_id, Object.from_int(int_input))
+
+                        case 3:
+                            array_input = [ord(c) for c in input()]
+                            self.set_object(dest_id, Object.from_array(array_input))
+                            
+                except ValueError:
+                    self.status = ErrorCode.INVALID_INPUT
+                    return
+                except EOFError:
+                    self.status = ErrorCode.EOF
+                    return
 
             case _:
                 Errors.invalid_op_code(main_op, self.statement)

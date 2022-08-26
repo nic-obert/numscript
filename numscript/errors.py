@@ -2,7 +2,7 @@ from enum import IntEnum
 from typing import Any
 from numscript.object import Object, Type as ObjectType
 from numscript.op_codes import Operator
-from numscript.parser import Statement
+from numscript.code import Statement
 from sys import stderr
 
 
@@ -19,6 +19,15 @@ class Errors:
     def error(*args: Any) -> None:
         print(*args, file=stderr)
         exit(1)
+
+    
+    @staticmethod
+    def not_enough_arguments(operator: Operator, statement: Statement, expected: int, got: int) -> None:
+        Errors.error(f"""
+Invalid argument number for operation {operator} on line {statement.line_number}.
+Expected at least {expected} arguments, got {got}:
+{statement.tokens}
+        """)
 
     @staticmethod
     def invalid_op_arg_number(operator: Operator, statement: Statement, expected: int, got: int) -> None:
@@ -76,3 +85,18 @@ No string representation for object {object} on line {statement.line_number}:
 Invalid index type for object {object} (expected {expected_type}) on line {statement.line_number}:
 {statement.tokens}
         """)
+    
+    @staticmethod
+    def symbol_not_found(identifier: int, statement: Statement) -> None:
+        Errors.error(f"""
+Symbol {identifier} not found on line {statement.line_number}:
+{statement.tokens}
+        """)
+    
+    @staticmethod
+    def invalid_token(token: str, statement: str, line_number: int) -> None:
+        Errors.error(f"""
+Invalid token '{token}' on line {line_number}:
+{statement}
+        """)
+

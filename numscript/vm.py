@@ -1,5 +1,5 @@
 from typing import Any, Dict, List
-from numscript.parser import Script, Statement
+from numscript.code import Script, Statement
 from numscript.errors import ErrorCode, Errors
 from numscript.op_codes import Operator
 from numscript.object import Object, Type as ObjectType
@@ -11,7 +11,16 @@ def check_minimum_arg_number(statement: Statement, expected: int) -> None:
         Statement should never be empty.
         Throw an error if the number of arguments is at least equal to expected.
     """
-    if statement.length() < expected:
+    if statement.length() < expected + 1:
+        Errors.not_enough_arguments(statement.get(0), statement, expected, statement.length() - 1)
+
+
+def check_exact_arg_number(statement: Statement, expected: int) -> None:
+    """
+        Statement should never be empty.
+        Throw an error if the number of arguments is not equal to expected.
+    """
+    if statement.length() != expected + 1:
         Errors.invalid_op_arg_number(statement.get(0), statement, expected, statement.length() - 1)
 
 
@@ -59,7 +68,7 @@ class VM:
 
     def get_stack_address_from_local(self, local_addr: int) -> int:
         # Search the address in the scope stack
-        last_scope = self.current_scope()
+        last_scope = len(self.stack)
         for scope in reversed(self.scopes):
             # Check if the scope contains the address
             # Get the size of the scope
@@ -72,6 +81,9 @@ class VM:
 
             # The address is in the scope
             return scope + local_addr
+        
+        # The address is not in any scope
+        Errors.symbol_not_found(local_addr, self.statement)
 
     
     def get_object(self, local_addr: int) -> Object:
@@ -151,6 +163,7 @@ class VM:
                 local_dest_id = self.statement.get(2)
                 match variant:
                     case 0:
+                        check_exact_arg_number(self.statement, 3)
                         value = self.statement.get(3)
                         self.declare_local_object(local_dest_id, Object.from_int(value))                        
                     
@@ -159,6 +172,7 @@ class VM:
                         self.declare_local_object(local_dest_id, Object.from_array(array))
                     
                     case 2:
+                        check_exact_arg_number(self.statement, 3)
                         src_id = self.statement.get(3)
                         self.declare_local_object(local_dest_id, self.get_object(src_id))
                     
@@ -177,6 +191,7 @@ class VM:
                 dest_id = self.statement.get(2)
                 match variant:
                     case 0:
+                        check_exact_arg_number(self.statement, 3)
                         value = self.statement.get(3)
                         self.set_object(dest_id, Object.from_int(value))
 
@@ -185,6 +200,7 @@ class VM:
                         self.set_object(dest_id, Object.from_array(array))
 
                     case 2:
+                        check_exact_arg_number(self.statement, 3)
                         src_id = self.statement.get(3)
                         self.set_object(dest_id, self.get_object(src_id))
                     
@@ -195,7 +211,7 @@ class VM:
                 """
                     2 [label identifier]
                 """
-                check_minimum_arg_number(self.statement, 1)
+                check_exact_arg_number(self.statement, 1)
                 label_id = self.statement.get(1)
                 self.labels[label_id] = self.program_counter
             
@@ -203,7 +219,7 @@ class VM:
                 """
                     3 [label identifier]
                 """
-                check_minimum_arg_number(self.statement, 1)
+                check_exact_arg_number(self.statement, 1)
                 label_id = self.statement.get(1)
                 self.goto_label(label_id)
             
@@ -211,7 +227,7 @@ class VM:
                 """
                     4
                 """
-                check_minimum_arg_number(self.statement, 0)
+                check_exact_arg_number(self.statement, 0)
                 # Restore the program counter
                 try:
                     self.program_counter = self.goto_stack.pop()
@@ -223,7 +239,7 @@ class VM:
                     5 0 [literal int]
                     5 1 [identifier]
                 """
-                check_minimum_arg_number(self.statement, 2)
+                check_exact_arg_number(self.statement, 2)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -245,14 +261,14 @@ class VM:
                 """
                     6
                 """
-                check_minimum_arg_number(self.statement, 0)
+                check_exact_arg_number(self.statement, 0)
             
             case Operator.SLEEP_MS:
                 """
                     7 0 [literal int]
                     7 1 [identifier]
                 """
-                check_minimum_arg_number(self.statement, 2)
+                check_exact_arg_number(self.statement, 2)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -280,17 +296,20 @@ class VM:
                 variant = self.statement.get(1)
                 match variant:
                     case 0:
+                        check_exact_arg_number(self.statement, 2)
                         value = self.statement.get(2)
                         print(value)
 
                     case 1:
                         array = self.statement.get_from(2)
-                        print(array)
+                        print(Object.from_array(array).to_string())
                     
                     case 2:
+                        check_exact_arg_number(self.statement, 2)
                         src_id = self.statement.get(2)
-                        print(self.get_object(src_id))
-                    
+                        obj = self.get_object(src_id)
+                        print(obj.represent())
+
                     case _:
                         Errors.invalid_op_code_variant(main_op, variant, self.statement)
             
@@ -305,14 +324,16 @@ class VM:
                 variant = self.statement.get(1)
                 match variant:
                     case 0:
+                        check_exact_arg_number(self.statement, 2)
                         value = self.statement.get(2)
                         print(chr(value))
 
                     case 1:
                         array = self.statement.get_from(2)
-                        print(''.join(chr(c) for c in array))
+                        print(Object.from_array(array).to_string())
 
                     case 2:
+                        check_exact_arg_number(self.statement, 2)
                         src_id = self.statement.get(2)
                         obj = self.get_object(src_id)
                         string = obj.to_string()
@@ -348,6 +369,7 @@ class VM:
                         self.set_object(dest_id, Object.from_int(array[index]))
 
                     case 2:
+                        check_exact_arg_number(self.statement, 4)
                         index = self.statement.get(2)
                         dest_id = self.statement.get(3)
                         array_id = self.statement.get(4)
@@ -358,6 +380,7 @@ class VM:
                         self.set_object(dest_id, Object.from_int(array[index]))
 
                     case 3:
+                        check_exact_arg_number(self.statement, 4)
                         index_id = self.statement.get(2)
                         dest_id = self.statement.get(3)
                         array_id = self.statement.get(4)
@@ -377,7 +400,7 @@ class VM:
                     11 2 [literal condition] [stop label]
                     11 3 [identifier condition] [stop label]
                 """
-                check_minimum_arg_number(self.statement, 3)
+                check_exact_arg_number(self.statement, 3)
 
                 variant = self.statement.get(1)
                 match variant:
@@ -416,7 +439,7 @@ class VM:
                     12 2 [save address] # input char as int
                     12 3 [save address] # input string as array
                 """
-                check_minimum_arg_number(self.statement, 2)
+                check_exact_arg_number(self.statement, 2)
 
                 variant = self.statement.get(1)
                 dest_id = self.statement.get(2)

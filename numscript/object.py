@@ -34,3 +34,14 @@ class Object():
                 return ''.join(chr(x) for x in self.value)
             case _:
                 return None
+    
+
+    def represent(self) -> str:
+        match self.type:
+            case Type.INT:
+                return str(self.value)
+            case Type.ARRAY:
+                return ' '.join(str(x) for x in self.value)
+            case _:
+                return f"<Object {self.type}: {self.value}>"
+                

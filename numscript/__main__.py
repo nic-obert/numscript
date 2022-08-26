@@ -15,7 +15,7 @@ def main() -> None:
     vm = VM()
     status = vm.run(script)
 
-    print(f"Program finished with status code {status}")
+    print(f"\nProgram finished with status code {status}")
 
 
 if __name__ == '__main__':

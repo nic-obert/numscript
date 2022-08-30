@@ -450,7 +450,7 @@ class VM:
                             self.set_object(dest_id, Object.from_int(int_input))
                         
                         case 1:
-                            array_input = [int(c) for c in input()]
+                            array_input = [int(c) for c in input().split(' ')]
                             self.set_object(dest_id, Object.from_array(array_input))
                         
                         case 2:
@@ -462,6 +462,9 @@ class VM:
                             self.set_object(dest_id, Object.from_array(array_input))
                             
                 except ValueError:
+                    self.status = ErrorCode.INVALID_INPUT
+                    return
+                except TypeError:
                     self.status = ErrorCode.INVALID_INPUT
                     return
                 except EOFError:
